@@ -30,11 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
@@ -42,9 +38,6 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,10 +82,6 @@ import com.google.accompanist.pager.rememberPagerState
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-// --- Data Classes ---
-data class Specialization(val name: String)
-data class Doctor(val id: String, val name: String, val specialization: String, val clinic: String, val location: String, val contact: String, val bookingFee: Int)
-
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,24 +95,35 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     topBar = {
-                        if (currentRoute != "welcome" && currentRoute != "signup" && currentRoute != "login" && currentRoute != "forgot_password"  && currentRoute != "thanks") {
+                        if (currentRoute != "welcome" && currentRoute != "signup" && currentRoute != "login" && currentRoute != "forgot_password" && currentRoute != "thanks") {
                             TopAppBar(
                                 title = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Image(
-                                            painter = painterResource(id = R.drawable.medical),
+                                            painter = painterResource(id = R.drawable.logo3),
                                             contentDescription = "Logo",
                                             modifier = Modifier.size(40.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("SmrtApp", color = Color.White)
+                                        Text("SmrtApp", color = Color.White, fontSize = 20.sp)
+                                    }
+                                },
+                                navigationIcon = {
+                                    if (navController.previousBackStackEntry != null) {
+                                        IconButton(onClick = { navController.navigateUp() }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowBack,
+                                                contentDescription = "Back",
+                                                tint = Color.White
+                                            )
+                                        }
                                     }
                                 },
                                 actions = {
                                     TextButton(onClick = { navController.navigate("landing") }) {
                                         Text("Home", color = Color.White)
                                     }
-                                    TextButton(onClick = { navController.navigate("doctors") }) {
+                                    TextButton(onClick = { navController.navigate("categories") }) {
                                         Text("Categories", color = Color.White)
                                     }
                                     IconButton(onClick = { navController.navigate("welcome") { popUpTo("welcome") { inclusive = true } } }) {
@@ -134,11 +134,6 @@ class MainActivity : ComponentActivity() {
                                     containerColor = Color.Blue
                                 )
                             )
-                        }
-                    },
-                    bottomBar = {
-                        if (currentRoute != "welcome" && currentRoute != "signup" && currentRoute != "login" && currentRoute != "forgot_password" && currentRoute != "thanks") {
-                            Footer(navController)
                         }
                     }
                 ) { innerPadding ->
@@ -153,13 +148,14 @@ class MainActivity : ComponentActivity() {
                         composable("login") { LoginScreen(navController = navController, onLoginSuccess = { navController.navigate("landing") }) }
                         composable("forgot_password") { ForgotPasswordScreen(navController) }
                         composable("landing") { LandingScreen(navController) }
-                        composable("doctors") { DoctorsScreen(navController) }
+                        composable("categories") { CategoriesScreen(navController) }
+                        composable("tips") { TipsScreen() }
                         composable(
-                            "booking_date_time/{specializationName}",
-                            arguments = listOf(navArgument("specializationName") { type = NavType.StringType })
+                            "booking_date_time/{doctorId}",
+                            arguments = listOf(navArgument("doctorId") { type = NavType.StringType })
                         ) { backStackEntry ->
-                            val specializationName = backStackEntry.arguments?.getString("specializationName") ?: ""
-                            BookingDateTimeScreen(navController, specializationName)
+                            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+                            BookingDateTimeScreen(navController, doctorId)
                         }
                         composable(
                             "dentist_list/{specializationName}",
@@ -183,48 +179,28 @@ class MainActivity : ComponentActivity() {
                             PatientDetailsScreen(navController, dentistId)
                         }
                         composable(
-                            "patient_location/{dentistId}/{name}/{age}/{contact}/{relationship}",
-                            arguments = listOf(
-                                navArgument("dentistId") { type = NavType.StringType },
-                                navArgument("name") { type = NavType.StringType },
-                                navArgument("age") { type = NavType.StringType },
-                                navArgument("contact") { type = NavType.StringType },
-                                navArgument("relationship") { type = NavType.StringType }
-                            )
-                        ) { backStackEntry ->
-                            val dentistId = backStackEntry.arguments?.getString("dentistId") ?: ""
-                            val name = backStackEntry.arguments?.getString("name") ?: ""
-                            val age = backStackEntry.arguments?.getString("age") ?: ""
-                            val contact = backStackEntry.arguments?.getString("contact") ?: ""
-                            val relationship = backStackEntry.arguments?.getString("relationship") ?: ""
-                            PatientLocationScreen(navController, dentistId, name, age, contact, relationship)
-                        }
-                        composable(
-                            "payment_method/{bookingFee}/{name}/{district}/{village}/{day}",
+                            "payment_method/{bookingFee}/{name}/{district}/{village}",
                             arguments = listOf(
                                 navArgument("bookingFee") { type = NavType.IntType },
                                 navArgument("name") { type = NavType.StringType },
                                 navArgument("district") { type = NavType.StringType },
-                                navArgument("village") { type = NavType.StringType },
-                                navArgument("day") { type = NavType.StringType }
+                                navArgument("village") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
                             val bookingFee = backStackEntry.arguments?.getInt("bookingFee") ?: 0
                             val name = backStackEntry.arguments?.getString("name") ?: ""
                             val district = backStackEntry.arguments?.getString("district") ?: ""
                             val village = backStackEntry.arguments?.getString("village") ?: ""
-                            val day = backStackEntry.arguments?.getString("day") ?: ""
-                            PaymentMethodScreen(navController, bookingFee, name, district, village, day)
+                            PaymentMethodScreen(navController, bookingFee, name, district, village)
                         }
                         composable(
-                            "payment_details/{paymentMethod}/{bookingFee}/{name}/{district}/{village}/{day}",
+                            "payment_details/{paymentMethod}/{bookingFee}/{name}/{district}/{village}",
                             arguments = listOf(
                                 navArgument("paymentMethod") { type = NavType.StringType },
                                 navArgument("bookingFee") { type = NavType.IntType },
                                 navArgument("name") { type = NavType.StringType },
                                 navArgument("district") { type = NavType.StringType },
-                                navArgument("village") { type = NavType.StringType },
-                                navArgument("day") { type = NavType.StringType }
+                                navArgument("village") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
                             val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: ""
@@ -232,23 +208,20 @@ class MainActivity : ComponentActivity() {
                             val name = backStackEntry.arguments?.getString("name") ?: ""
                             val district = backStackEntry.arguments?.getString("district") ?: ""
                             val village = backStackEntry.arguments?.getString("village") ?: ""
-                            val day = backStackEntry.arguments?.getString("day") ?: ""
-                            PaymentDetailsScreen(navController, paymentMethod, bookingFee, name, district, village, day)
+                            PaymentDetailsScreen(navController, paymentMethod, bookingFee, name, district, village)
                         }
                         composable(
-                            "booking_confirmation/{name}/{district}/{village}/{day}",
+                            "booking_confirmation/{name}/{district}/{village}",
                             arguments = listOf(
                                 navArgument("name") { type = NavType.StringType },
                                 navArgument("district") { type = NavType.StringType },
-                                navArgument("village") { type = NavType.StringType },
-                                navArgument("day") { type = NavType.StringType }
+                                navArgument("village") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
                             val name = backStackEntry.arguments?.getString("name") ?: ""
                             val district = backStackEntry.arguments?.getString("district") ?: ""
                             val village = backStackEntry.arguments?.getString("village") ?: ""
-                            val day = backStackEntry.arguments?.getString("day") ?: ""
-                            BookingConfirmationScreen(navController, name, district, village, day)
+                            BookingConfirmationScreen(navController, name, district, village)
                         }
                         composable("thanks") { ThanksScreen(navController) }
                     }
@@ -273,7 +246,8 @@ fun OnDocWelcomeScreen(onLoginClicked: () -> Unit, onSignUpClicked: () -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 32.dp),
+            .padding(vertical = 32.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceAround
     ) {
@@ -334,7 +308,9 @@ fun SignUpScreen(navController: NavController, onSignUpSuccess: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         TopAppBar(
             title = { Text("Sign Up") },
@@ -404,7 +380,9 @@ fun LoginScreen(navController: NavController, onLoginSuccess: () -> Unit) {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         TopAppBar(
             title = { Text("Login") },
@@ -481,7 +459,9 @@ fun ForgotPasswordScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         TopAppBar(
             title = { Text("Forgot Password") },
@@ -501,7 +481,6 @@ fun ForgotPasswordScreen(navController: NavController) {
             if (showError) {
                 Text("Please enter your email", color = Color.Red)
             }
-            Text(text = "Forgot Password", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             Text("Enter your email to receive a password reset code.")
             Spacer(modifier = Modifier.height(16.dp))
@@ -530,131 +509,40 @@ fun ForgotPasswordScreen(navController: NavController) {
     }
 }
 
-@OptIn(ExperimentalPagerApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun LandingScreen(navController: NavController) {
-    val pagerState = rememberPagerState()
-    val texts = listOf(
-        "Want a medical help? you are in right place, we are here to cater your healthy needs",
-        "Enter the category name above, to pin down the type of doctor you need",
-        "we offer medical exparts of all sorts"
-    )
-    val specializations = remember { listOf(Specialization("Dentist"), Specialization("Physicist"), Specialization("Optometry"), Specialization("Psychologist"), Specialization("Surgeon")) }
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredSpecializations = specializations.filter { it.name.contains(searchQuery, ignoreCase = true) }
-
-    LaunchedEffect(pagerState) {
-        while (true) {
-            delay(5000)
-            pagerState.animateScrollToPage((pagerState.currentPage + 1) % pagerState.pageCount)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search for a category...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            if (searchQuery.isBlank()) {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = painterResource(id = R.drawable.medical),
-                        contentDescription = "Medical Equipment",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    HorizontalPager(
-                        count = texts.size,
-                        state = pagerState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        Text(
-                            text = texts[it],
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp),
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            if(searchQuery.isNotBlank()) {
-                LazyColumn(modifier = Modifier.height(500.dp)) {
-                    items(filteredSpecializations) { specialization ->
-                        Text(
-                            text = specialization.name,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navController.navigate("booking_date_time/${specialization.name}") }
-                                .padding(16.dp),
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoctorsScreen(navController: NavController) {
-    val doctors = remember {
-        listOf(
-            Doctor("1", "Dr. Daniel Medson", "Dentist", "Ali Clinic", "Lilongwe", "+265 883 760 614", 1500),
-            Doctor("2", "Dr. Bless Katumbi", "Dentist", "Happy Teeth Dental", "Los Angeles", "098-765-4321", 2000),
-            Doctor("3", "Dr Mercy chiponde", "Dentist", "Mercy Clinic", "Blantyre", "111-222-3333", 1800),
-            Doctor("4", "Dr hestings chapotera", "Dentist", "Chapotera Clinic", "Zomba", "444-555-6666", 2500)
-        )
-    }
+fun CategoriesScreen(navController: NavController) {
+    val specializations = DataSource.specializations
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Our Doctors", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Categories", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
             Spacer(modifier = Modifier.height(16.dp))
-            doctors.forEach { doctor ->
+            specializations.forEach { specialization ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
-                        .clickable { navController.navigate("dentist_detail/${doctor.id}") }
+                        .clickable { navController.navigate("dentist_list/${specialization.name}") }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.pic),
-                            contentDescription = "Doctor's profile picture",
+                            painter = painterResource(id = specialization.imageRes),
+                            contentDescription = specialization.name,
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                         Spacer(modifier = Modifier.size(16.dp))
-                        Column {
-                            Text(doctor.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text(doctor.specialization, fontSize = 16.sp, color = Color.Gray)
-                        }
+                        Text(specialization.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
                 }
             }
@@ -662,17 +550,21 @@ fun DoctorsScreen(navController: NavController) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookingDateTimeScreen(navController: NavController, specializationName: String) {
+fun BookingDateTimeScreen(navController: NavController, doctorId: String) {
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
+    val doctor = DataSource.doctors.find { it.id == doctorId }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Column(
             modifier = Modifier
@@ -686,7 +578,9 @@ fun BookingDateTimeScreen(navController: NavController, specializationName: Stri
             }
             Text("Book an Appointment", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Specialization: $specializationName", fontSize = 18.sp)
+            if (doctor != null) {
+                Text("with ${doctor.name}", fontSize = 18.sp)
+            }
             Spacer(modifier = Modifier.height(16.dp))
             TextField(
                 value = date,
@@ -708,14 +602,14 @@ fun BookingDateTimeScreen(navController: NavController, specializationName: Stri
                 onClick = { 
                     if(date.isNotBlank() && time.isNotBlank()) {
                         showError = false
-                        navController.navigate("dentist_list/$specializationName") 
+                        navController.navigate("dentist_detail/$doctorId") 
                     } else {
                         showError = true
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Find Doctors")
+                Text("Check Availability")
             }
         }
     }
@@ -724,20 +618,14 @@ fun BookingDateTimeScreen(navController: NavController, specializationName: Stri
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DentistListScreen(navController: NavController, specializationName: String) {
-    val allDoctors = remember {
-        listOf(
-            Doctor("1", "Dr. Daniel Medson", "Dentist", "Ali Clinic", "Lilongwe", "+265 883 760 614", 1500),
-            Doctor("2", "Dr. Bless Katumbi", "Dentist", "Happy Teeth Dental", "Los Angeles", "098-765-4321", 2000),
-            Doctor("3", "Dr Mercy chiponde", "Dentist", "Mercy Clinic", "Blantyre", "111-222-3333", 1800),
-            Doctor("4", "Dr hestings chapotera", "Dentist", "Chapotera Clinic", "Zomba", "444-555-6666", 2500)
-        )
-    }
     var searchQuery by remember { mutableStateOf("") }
-    val filteredDoctors = allDoctors.filter { it.name.contains(searchQuery, ignoreCase = true) && it.specialization.equals(specializationName, ignoreCase = true) }
+    val filteredDoctors = DataSource.doctors.filter { it.name.contains(searchQuery, ignoreCase = true) && it.specialization.equals(specializationName, ignoreCase = true) }
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -763,18 +651,13 @@ fun DentistListScreen(navController: NavController, specializationName: String) 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DentistDetailScreen(navController: NavController, dentistId: String) {
-    val doctor = remember {
-        listOf(
-            Doctor("1", "Dr. Daniel Medson", "Dentist", "Ali Clinic", "Lilongwe", "+265 881 770 119", 1500),
-            Doctor("2", "Dr. Bless Katumbi", "Dentist", "Happy Teeth Dental", "Los Angeles", "098-765-4321", 2000),
-            Doctor("3", "Dr Mercy chiponde", "Dentist", "Mercy Clinic", "Blantyre", "111-222-3333", 1800),
-            Doctor("4", "Dr hestings chapotera", "Dentist", "Chapotera Clinic", "Zomba", "444-555-6666", 2500)
-        ).find { it.id == dentistId }
-    }
+    val doctor = DataSource.doctors.find { it.id == dentistId }
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         if (doctor != null) {
             Column(
                 modifier = Modifier
@@ -783,6 +666,15 @@ fun DentistDetailScreen(navController: NavController, dentistId: String) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                Image(
+                    painter = painterResource(id = doctor.imageRes),
+                    contentDescription = doctor.name,
+                    modifier = Modifier
+                        .size(150.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(text = doctor.name, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = "Clinic: ${doctor.clinic}", textAlign = TextAlign.Center)
@@ -791,7 +683,9 @@ fun DentistDetailScreen(navController: NavController, dentistId: String) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "Booking Fee: ${doctor.bookingFee}", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { navController.navigate("patient_details/${doctor.id}") }) { Text("Book now") }
+                Button(onClick = { navController.navigate("patient_details/${doctor.id}") }) { 
+                    Text("Book now", fontSize = 20.sp)
+                }
             }
         } else {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -803,130 +697,19 @@ fun DentistDetailScreen(navController: NavController, dentistId: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PatientDetailsScreen(navController: NavController, dentistId: String) {
-    var name by remember { mutableStateOf("") }
-    var age by remember { mutableStateOf("") }
-    var contact by remember { mutableStateOf("") }
-    var relationship by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-    val doctor = remember {
-        listOf(
-            Doctor("1", "Dr. Daniel Medson", "Dentist", "Ali Clinic", "Lilongwe", "+265 881 770 119", 1500),
-            Doctor("2", "Dr. Bless Katumbi", "Dentist", "Happy Teeth Dental", "Los Angeles", "098-765-4321", 2000),
-            Doctor("3", "Dr Mercy chiponde", "Dentist", "Mercy Clinic", "Blantyre", "111-222-3333", 1800),
-            Doctor("4", "Dr hestings chapotera", "Dentist", "Chapotera Clinic", "Zomba", "444-555-6666", 2500)
-        ).find { it.id == dentistId }
-    }
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
-        ) {
-            if (showError) {
-                Text("Please fill all fields", color = Color.Red)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = age, onValueChange = { age = it }, label = { Text("Age") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = contact, onValueChange = { if (it.all { char -> char.isDigit() }) contact = it }, label = { Text("Contact Number") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = relationship, onValueChange = { relationship = it }, label = { Text("Relationship to Patient") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = {
-                    if (name.isNotBlank() && age.isNotBlank() && contact.isNotBlank() && relationship.isNotBlank()) {
-                        showError = false
-                        navController.navigate("patient_location/$dentistId/$name/$age/$contact/$relationship")
-                    } else {
-                        showError = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Blue),
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Continue") }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PatientLocationScreen(navController: NavController, dentistId: String, name: String, age: String, contact: String, relationship: String) {
-    var district by remember { mutableStateOf("") }
-    var village by remember { mutableStateOf("") }
-    var street by remember { mutableStateOf("") }
-    var postalAddress by remember { mutableStateOf("") }
-    var day by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-    val doctor = remember {
-        listOf(
-            Doctor("1", "Dr. Daniel Medson", "Dentist", "Ali Clinic", "Lilongwe", "+265 881 770 119", 1500),
-            Doctor("2", "Dr. Bless Katumbi", "Dentist", "Happy Teeth Dental", "Los Angeles", "098-765-4321", 2000),
-            Doctor("3", "Dr Mercy chiponde", "Dentist", "Mercy Clinic", "Blantyre", "111-222-3333", 1800),
-            Doctor("4", "Dr hestings chapotera", "Dentist", "Chapotera Clinic", "Zomba", "444-555-6666", 2500)
-        ).find { it.id == dentistId }
-    }
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
-        ) {
-            if (showError) {
-                Text("Please fill all fields", color = Color.Red)
-            }
-            TextField(value = district, onValueChange = { district = it }, label = { Text("District") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = village, onValueChange = { village = it }, label = { Text("Village") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = street, onValueChange = { street = it }, label = { Text("Street") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = postalAddress, onValueChange = { postalAddress = it }, label = { Text("Postal Address") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(value = day, onValueChange = { day = it }, label = { Text("Day") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { 
-                    if (district.isNotBlank() && village.isNotBlank() && street.isNotBlank() && postalAddress.isNotBlank() && day.isNotBlank()) {
-                        showError = false
-                        navController.navigate("payment_method/${doctor?.bookingFee}/$name/$district/$village/$day") 
-                    } else {
-                        showError = true
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Continue")
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PaymentMethodScreen(navController: NavController, bookingFee: Int, name: String, district: String, village: String, day: String) {
+fun PaymentMethodScreen(navController: NavController, bookingFee: Int, name: String, district: String, village: String) {
     val paymentMethods = listOf(
-        "NBS" to R.drawable.nbs, // Replace with your drawable resource
-        "NB" to R.drawable.nb, // Replace with your drawable resource
-        "Airtel Money" to R.drawable.airtel, // Replace with your drawable resource
-        "Tnm Mpamba" to R.drawable.tnm // Replace with your drawable resource
+        "NBS" to R.drawable.nbs,
+        "NB" to R.drawable.nb,
+        "Airtel Money" to R.drawable.airtel,
+        "Tnm Mpamba" to R.drawable.tnm
     )
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -942,9 +725,9 @@ fun PaymentMethodScreen(navController: NavController, bookingFee: Int, name: Str
                     contentDescription = method,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
+                        .height(100.dp)
                         .padding(bottom = 8.dp)
-                        .clickable { navController.navigate("payment_details/$method/$bookingFee/$name/$district/$village/$day") },
+                        .clickable { navController.navigate("payment_details/$method/$bookingFee/$name/$district/$village") },
                     contentScale = ContentScale.Fit
                 )
             }
@@ -954,7 +737,7 @@ fun PaymentMethodScreen(navController: NavController, bookingFee: Int, name: Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bookingFee: Int, name: String, district: String, village: String, day: String) {
+fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bookingFee: Int, name: String, district: String, village: String) {
     var accountNumber by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf(bookingFee.toString()) }
@@ -962,7 +745,9 @@ fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bo
 
     Column(modifier = Modifier
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())) {
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1012,7 +797,7 @@ fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bo
                     }
                     if (isValid) {
                         showError = false
-                        navController.navigate("booking_confirmation/$name/$district/$village/$day") 
+                        navController.navigate("booking_confirmation/$name/$district/$village") 
                     } else {
                         showError = true
                     }
@@ -1028,9 +813,12 @@ fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookingConfirmationScreen(navController: NavController, name: String, district: String, village: String, day: String) {
+fun BookingConfirmationScreen(navController: NavController, name: String, district: String, village: String) {
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier
+        .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -1039,7 +827,7 @@ fun BookingConfirmationScreen(navController: NavController, name: String, distri
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Thanks, your booking process is complete. Your name is $name located at $district, $village, on $day we will find you.",
+                text = "Thanks, your booking process is complete. Your name is $name located at $district, $village, we will find you.",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -1075,21 +863,6 @@ fun ThanksScreen(navController: NavController) {
             fontSize = 48.sp * scale.value,
             fontWeight = FontWeight.Bold
         )
-    }
-}
-
-@Composable
-fun Footer(navController: NavController) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.LightGray)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        Text("About", modifier = Modifier.clickable { /*TODO*/ })
-        Text("Contact Us", modifier = Modifier.clickable { /*TODO*/ })
-        Text("Privacy Policy", modifier = Modifier.clickable { /*TODO*/ })
     }
 }
 
@@ -1136,9 +909,9 @@ fun LandingScreenPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun DoctorsScreenPreview() {
+fun CategoriesScreenPreview() {
     SmrtAppTheme {
-        DoctorsScreen(navController = rememberNavController())
+        CategoriesScreen(navController = rememberNavController())
     }
 }
 
@@ -1146,7 +919,7 @@ fun DoctorsScreenPreview() {
 @Composable
 fun BookingDateTimeScreenPreview() {
     SmrtAppTheme {
-        BookingDateTimeScreen(navController = rememberNavController(), specializationName = "Dentist")
+        BookingDateTimeScreen(navController = rememberNavController(), doctorId = "1")
     }
 }
 
@@ -1168,25 +941,9 @@ fun DentistDetailScreenPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun PatientDetailsScreenPreview() {
-    SmrtAppTheme {
-        PatientDetailsScreen(navController = rememberNavController(), dentistId = "1")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PatientLocationScreenPreview() {
-    SmrtAppTheme {
-        PatientLocationScreen(navController = rememberNavController(), "1", "name", "age", "contact", "relationship")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
 fun PaymentMethodScreenPreview() {
     SmrtAppTheme {
-        PaymentMethodScreen(navController = rememberNavController(), 1500, "name", "district", "village", "day")
+        PaymentMethodScreen(navController = rememberNavController(), 1500, "name", "district", "village")
     }
 }
 
@@ -1194,7 +951,7 @@ fun PaymentMethodScreenPreview() {
 @Composable
 fun PaymentDetailsScreenPreview() {
     SmrtAppTheme {
-        PaymentDetailsScreen(navController = rememberNavController(), "Airtel Money", 1500, "name", "district", "village", "day")
+        PaymentDetailsScreen(navController = rememberNavController(), "Airtel Money", 1500, "name", "district", "village")
     }
 }
 
@@ -1202,7 +959,7 @@ fun PaymentDetailsScreenPreview() {
 @Composable
 fun BookingConfirmationScreenPreview() {
     SmrtAppTheme {
-        BookingConfirmationScreen(navController = rememberNavController(), "name", "district", "village", "day")
+        BookingConfirmationScreen(navController = rememberNavController(), "name", "district", "village")
     }
 }
 
@@ -1211,13 +968,5 @@ fun BookingConfirmationScreenPreview() {
 fun ThanksScreenPreview() {
     SmrtAppTheme {
         ThanksScreen(navController = rememberNavController())
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun FooterPreview() {
-    SmrtAppTheme {
-        Footer(navController = rememberNavController())
     }
 }
