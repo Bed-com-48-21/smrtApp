@@ -509,6 +509,7 @@ fun ForgotPasswordScreen(navController: NavController) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(navController: NavController) {
@@ -639,7 +640,7 @@ fun DentistListScreen(navController: NavController, specializationName: String) 
                     text = doctor.name,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { navController.navigate("dentist_detail/${doctor.id}") }
+                        .clickable { navController.navigate("booking_date_time/${doctor.id}") }
                         .padding(16.dp),
                     textAlign = TextAlign.Center
                 )
@@ -896,14 +897,6 @@ fun LoginScreenPreview() {
 fun ForgotPasswordScreenPreview() {
     SmrtAppTheme {
         ForgotPasswordScreen(navController = rememberNavController())
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun LandingScreenPreview() {
-    SmrtAppTheme {
-        LandingScreen(navController = rememberNavController())
     }
 }
 
