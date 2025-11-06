@@ -52,7 +52,7 @@ fun PatientDetailsScreen(navController: NavController, dentistId: String) {
     ) {
         Text("Enter Patient Details", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         if (showError) {
-            Text("Please fill all fields", color = Color.Red)
+            Text("Please fill all required fields", color = Color.Red)
         }
         Spacer(modifier = Modifier.height(16.dp))
         TextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
@@ -67,11 +67,11 @@ fun PatientDetailsScreen(navController: NavController, dentistId: String) {
         Spacer(modifier = Modifier.height(8.dp))
         TextField(value = village, onValueChange = { village = it }, label = { Text("Village") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(8.dp))
-        TextField(value = street, onValueChange = { street = it }, label = { Text("Street") }, modifier = Modifier.fillMaxWidth())
+        TextField(value = street, onValueChange = { street = it }, label = { Text("Street (Optional)") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = {
-                if (name.isNotBlank() && age.isNotBlank() && contact.isNotBlank() && relationship.isNotBlank() && district.isNotBlank() && village.isNotBlank() && street.isNotBlank()) {
+                if (name.isNotBlank() && age.isNotBlank() && contact.isNotBlank() && relationship.isNotBlank() && district.isNotBlank() && village.isNotBlank()) {
                     showError = false
                     if (doctor != null) {
                         navController.navigate("payment_method/${doctor.bookingFee}/$name/$district/$village")
