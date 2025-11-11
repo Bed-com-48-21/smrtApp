@@ -21,23 +21,17 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,7 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -76,9 +69,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.smrtapp.ui.theme.SmrtAppTheme
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.rememberPagerState
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -120,14 +110,25 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 actions = {
+                                    var menuExpanded by remember { mutableStateOf(false) }
+
                                     TextButton(onClick = { navController.navigate("landing") }) {
                                         Text("Home", color = Color.White)
                                     }
                                     TextButton(onClick = { navController.navigate("categories") }) {
                                         Text("Categories", color = Color.White)
                                     }
-                                    IconButton(onClick = { navController.navigate("welcome") { popUpTo("welcome") { inclusive = true } } }) {
-                                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.White)
+                                    IconButton(onClick = { menuExpanded = true }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)
+                                    }
+                                    DropdownMenu(
+                                        expanded = menuExpanded,
+                                        onDismissRequest = { menuExpanded = false }
+                                    ) {
+                                        DropdownMenuItem(text = { Text("Profile") }, onClick = { navController.navigate("profile"); menuExpanded = false })
+                                        DropdownMenuItem(text = { Text("Tips") }, onClick = { navController.navigate("tips"); menuExpanded = false })
+                                        DropdownMenuItem(text = { Text("Notifications") }, onClick = { /* TODO */ menuExpanded = false })
+                                        DropdownMenuItem(text = { Text("Logout") }, onClick = { navController.navigate("welcome") { popUpTo("welcome") { inclusive = true } }; menuExpanded = false })
                                     }
                                 },
                                 colors = TopAppBarDefaults.topAppBarColors(
@@ -150,19 +151,16 @@ class MainActivity : ComponentActivity() {
                         composable("landing") { LandingScreen(navController) }
                         composable("categories") { CategoriesScreen(navController) }
                         composable("tips") { TipsScreen() }
-                        composable(
-                            "booking_date_time/{doctorId}",
-                            arguments = listOf(navArgument("doctorId") { type = NavType.StringType })
-                        ) { backStackEntry ->
-                            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
-                            BookingDateTimeScreen(navController, doctorId)
+                        composable("profile") { ProfileScreen() }
+                        composable("find_doctors") { 
+                            FindDoctorsScreen(navController = navController, specializationName = null)
                         }
                         composable(
-                            "dentist_list/{specializationName}",
-                            arguments = listOf(navArgument("specializationName") { type = NavType.StringType })
+                            "find_doctors/{specializationName}",
+                            arguments = listOf(navArgument("specializationName") { type = NavType.StringType; nullable = true })
                         ) { backStackEntry ->
-                            val specializationName = backStackEntry.arguments?.getString("specializationName") ?: ""
-                            DentistListScreen(navController, specializationName)
+                            val specializationName = backStackEntry.arguments?.getString("specializationName")
+                            FindDoctorsScreen(navController = navController, specializationName = specializationName)
                         }
                         composable(
                             "dentist_detail/{dentistId}",
@@ -211,19 +209,15 @@ class MainActivity : ComponentActivity() {
                             PaymentDetailsScreen(navController, paymentMethod, bookingFee, name, district, village)
                         }
                         composable(
-                            "booking_confirmation/{name}/{district}/{village}",
+                            "booking_confirmation/{name}",
                             arguments = listOf(
-                                navArgument("name") { type = NavType.StringType },
-                                navArgument("district") { type = NavType.StringType },
-                                navArgument("village") { type = NavType.StringType }
+                                navArgument("name") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
                             val name = backStackEntry.arguments?.getString("name") ?: ""
-                            val district = backStackEntry.arguments?.getString("district") ?: ""
-                            val village = backStackEntry.arguments?.getString("village") ?: ""
-                            BookingConfirmationScreen(navController, name, district, village)
+                            BookingConfirmationScreen(navController, name)
                         }
-                        composable("thanks") { ThanksScreen(navController) }
+                        composable("thanks") { ThanksScreen() }
                     }
                 }
             }
@@ -407,7 +401,7 @@ fun LoginScreen(navController: NavController, onLoginSuccess: () -> Unit) {
             TextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text("Email/Phone Number") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -456,25 +450,24 @@ fun ForgotPasswordScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        TopAppBar(
-            title = { Text("Forgot Password") },
-            navigationIcon = {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Forgot Password") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
                 }
-            }
-        )
+            )
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -509,190 +502,10 @@ fun ForgotPasswordScreen(navController: NavController) {
     }
 }
 
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoriesScreen(navController: NavController) {
-    val specializations = DataSource.specializations
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Categories", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-            Spacer(modifier = Modifier.height(16.dp))
-            specializations.forEach { specialization ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .clickable { navController.navigate("dentist_list/${specialization.name}") }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = specialization.imageRes),
-                            contentDescription = specialization.name,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                        Spacer(modifier = Modifier.size(16.dp))
-                        Text(specialization.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun BookingDateTimeScreen(navController: NavController, doctorId: String) {
-    var date by remember { mutableStateOf("") }
-    var time by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-    val doctor = DataSource.doctors.find { it.id == doctorId }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            if (showError) {
-                Text("Please fill all fields", color = Color.Red)
-            }
-            Text("Book an Appointment", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            if (doctor != null) {
-                Text("with ${doctor.name}", fontSize = 18.sp)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            TextField(
-                value = date,
-                onValueChange = { date = it },
-                label = { Text("Enter Date (DD/MM/YYYY)") },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(
-                value = time,
-                onValueChange = { time = it },
-                label = { Text("Enter Time (e.g., 14:00)") },
-                leadingIcon = { Icon(Icons.Default.Notifications, contentDescription = "Time") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { 
-                    if(date.isNotBlank() && time.isNotBlank()) {
-                        showError = false
-                        navController.navigate("dentist_detail/$doctorId") 
-                    } else {
-                        showError = true
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Check Availability")
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DentistListScreen(navController: NavController, specializationName: String) {
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredDoctors = DataSource.doctors.filter { it.name.contains(searchQuery, ignoreCase = true) && it.specialization.equals(specializationName, ignoreCase = true) }
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            TextField(value = searchQuery, onValueChange = { searchQuery = it }, label = { Text("Enter doctor's name") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(16.dp))
-            filteredDoctors.forEach { doctor ->
-                Text(
-                    text = doctor.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { navController.navigate("booking_date_time/${doctor.id}") }
-                        .padding(16.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DentistDetailScreen(navController: NavController, dentistId: String) {
-    val doctor = DataSource.doctors.find { it.id == dentistId }
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center) {
-        if (doctor != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Image(
-                    painter = painterResource(id = doctor.imageRes),
-                    contentDescription = doctor.name,
-                    modifier = Modifier
-                        .size(150.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = doctor.name, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Clinic: ${doctor.clinic}", textAlign = TextAlign.Center)
-                Text(text = "Location: ${doctor.location}", textAlign = TextAlign.Center)
-                Text(text = "Contact: ${doctor.contact}", textAlign = TextAlign.Center)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Booking Fee: ${doctor.bookingFee}", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { navController.navigate("patient_details/${doctor.id}") }) { 
-                    Text("Book now", fontSize = 20.sp)
-                }
-            }
-        } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Doctor not found.")
-            }
-        }
+fun ProfileScreen() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text("Profile Screen", fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -798,7 +611,7 @@ fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bo
                     }
                     if (isValid) {
                         showError = false
-                        navController.navigate("booking_confirmation/$name/$district/$village") 
+                        navController.navigate("booking_confirmation/$name") 
                     } else {
                         showError = true
                     }
@@ -814,7 +627,7 @@ fun PaymentDetailsScreen(navController: NavController, paymentMethod: String, bo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookingConfirmationScreen(navController: NavController, name: String, district: String, village: String) {
+fun BookingConfirmationScreen(navController: NavController, name: String) {
 
     Column(modifier = Modifier
         .fillMaxSize(),
@@ -828,7 +641,7 @@ fun BookingConfirmationScreen(navController: NavController, name: String, distri
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Thanks, your booking process is complete. Your name is $name located at $district, $village, we will find you.",
+                text = "Thank you, your booking process is complete. looking forward to meeting you $name.",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -840,29 +653,18 @@ fun BookingConfirmationScreen(navController: NavController, name: String, distri
 }
 
 @Composable
-fun ThanksScreen(navController: NavController) {
-    val scale = remember { Animatable(0f) }
-
-    LaunchedEffect(Unit) {
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 1000)
-        )
-        delay(2000)
-        navController.navigate("welcome") { popUpTo("welcome") { inclusive = true } }
-    }
-
+fun ThanksScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Blue),
+            .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Thanks!",
-            color = Color.White,
-            fontSize = 48.sp * scale.value,
-            fontWeight = FontWeight.Bold
+            text = "your booking process is successful, thank you.",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -902,38 +704,6 @@ fun ForgotPasswordScreenPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun CategoriesScreenPreview() {
-    SmrtAppTheme {
-        CategoriesScreen(navController = rememberNavController())
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BookingDateTimeScreenPreview() {
-    SmrtAppTheme {
-        BookingDateTimeScreen(navController = rememberNavController(), doctorId = "1")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DentistListScreenPreview() {
-    SmrtAppTheme {
-        DentistListScreen(navController = rememberNavController(), specializationName = "Dentist")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DentistDetailScreenPreview() {
-    SmrtAppTheme {
-        DentistDetailScreen(navController = rememberNavController(), dentistId = "1")
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
 fun PaymentMethodScreenPreview() {
     SmrtAppTheme {
         PaymentMethodScreen(navController = rememberNavController(), 1500, "name", "district", "village")
@@ -952,7 +722,7 @@ fun PaymentDetailsScreenPreview() {
 @Composable
 fun BookingConfirmationScreenPreview() {
     SmrtAppTheme {
-        BookingConfirmationScreen(navController = rememberNavController(), "name", "district", "village")
+        BookingConfirmationScreen(navController = rememberNavController(), "name")
     }
 }
 
@@ -960,6 +730,6 @@ fun BookingConfirmationScreenPreview() {
 @Composable
 fun ThanksScreenPreview() {
     SmrtAppTheme {
-        ThanksScreen(navController = rememberNavController())
+        ThanksScreen()
     }
 }
